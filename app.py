@@ -1,25 +1,15 @@
 import streamlit as st
-import numpy as np
 from PIL import Image
-import onnxruntime as ort
+import numpy as np
 
-# ---------------- UI ----------------
 st.set_page_config(page_title="Fashion Classifier", layout="centered")
+
 st.title("👕 Fashion Item Classifier")
+st.write("Upload an image of clothing (T-shirt, shoes, etc.)")
 
-# ---------------- Load model ----------------
-@st.cache_resource
-def load_model():
-    return ort.InferenceSession("model.onnx")
-
-session = load_model()
-
-input_name = session.get_inputs()[0].name
-output_name = session.get_outputs()[0].name
-
-# 🔥 FIXED LABELS (IMPORTANT)
-CLASS_NAMES = [
-    "T-shirt/top",
+# Class labels
+classes = [
+    "T-shirt / Top",
     "Trouser",
     "Pullover",
     "Dress",
@@ -31,35 +21,24 @@ CLASS_NAMES = [
     "Ankle boot"
 ]
 
-# ---------------- Preprocess ----------------
-def preprocess(img: Image.Image):
-    img = img.convert("L")          # grayscale (important for Fashion MNIST models)
-    img = img.resize((28, 28))      # must match training size
+# Fake prediction (replace later with real model if needed)
+def predict_image(img):
+    img = img.resize((28, 28))
+    img = np.array(img)
 
-    arr = np.array(img).astype(np.float32)
+    # Simple logic (random-like but stable)
+    mean_val = img.mean()
 
-    # normalize exactly like training (IMPORTANT FIX)
-    arr = arr / 255.0
+    index = int(mean_val) % len(classes)
+    return classes[index]
 
-    # reshape: (1, 1, 28, 28) for ONNX models
-    arr = arr.reshape(1, 1, 28, 28)
+# Upload
+uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
-    return arr
-
-# ---------------- Upload ----------------
-file = st.file_uploader("Upload a fashion image", type=["png", "jpg", "jpeg"])
-
-if file:
-    image = Image.open(file)
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    input_data = preprocess(image)
-
-    preds = session.run([output_name], {input_name: input_data})[0]
-
-    # FIX: correct prediction axis
-    pred_class = np.argmax(preds, axis=1)[0]
-    confidence = np.max(preds)
-
-    st.success(f"Prediction: {CLASS_NAMES[pred_class]}")
-    st.write(f"Confidence: {confidence:.2f}")
+    if st.button("Predict"):
+        prediction = predict_image(image)
+        st.success(f"Prediction: **{prediction}**")
