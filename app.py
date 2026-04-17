@@ -1,17 +1,16 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPClassifier
 from sklearn.datasets import fetch_openml
 
 st.set_page_config(page_title="Fashion Classifier")
 
-st.title("👕 Fashion Classifier (No TensorFlow)")
-st.write("Works on Streamlit Cloud without errors")
+st.title("👕 Fashion Image Classifier")
+st.write("Upload an image → Predict clothing type")
 
 # ================================
-# LOAD DATA (Fashion MNIST)
+# LOAD DATA
 # ================================
 @st.cache_resource
 def load_data():
@@ -22,7 +21,7 @@ def load_data():
 X_train, y_train, X_test, y_test = load_data()
 
 # ================================
-# MODEL
+# TRAIN MODEL
 # ================================
 @st.cache_resource
 def train_model():
@@ -32,18 +31,20 @@ def train_model():
 
 model = train_model()
 
+# Labels
 class_names = [
     "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
     "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"
 ]
 
 # ================================
-# UPLOAD IMAGE
+# IMAGE UPLOAD
 # ================================
 uploaded_file = st.file_uploader("Upload Image", type=["jpg","png"])
 
 def preprocess(img):
-    img = img.convert("L").resize((28,28))
+    img = img.convert("L")
+    img = img.resize((28,28))
     img = np.array(img)/255.0
     return img.reshape(1, -1)
 
