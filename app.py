@@ -1,40 +1,65 @@
 import streamlit as st
-from PIL import Image
 import numpy as np
+from PIL import Image
 import onnxruntime as ort
 
-# Load model
-session = ort.InferenceSession("fashion_mnist.onnx")
+# ---------------- UI ----------------
+st.set_page_config(page_title="Fashion Classifier", layout="centered")
+st.title("👕 Fashion Item Classifier")
 
-# Class labels
-labels = [
-    "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
-    "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"
+# ---------------- Load model ----------------
+@st.cache_resource
+def load_model():
+    return ort.InferenceSession("model.onnx")
+
+session = load_model()
+
+input_name = session.get_inputs()[0].name
+output_name = session.get_outputs()[0].name
+
+# 🔥 FIXED LABELS (IMPORTANT)
+CLASS_NAMES = [
+    "T-shirt/top",
+    "Trouser",
+    "Pullover",
+    "Dress",
+    "Coat",
+    "Sandal",
+    "Shirt",
+    "Sneaker",
+    "Bag",
+    "Ankle boot"
 ]
 
-st.title("👕 Fashion Classifier")
+# ---------------- Preprocess ----------------
+def preprocess(img: Image.Image):
+    img = img.convert("L")          # grayscale (important for Fashion MNIST models)
+    img = img.resize((28, 28))      # must match training size
 
-uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
+    arr = np.array(img).astype(np.float32)
 
-if uploaded_file:
-    image = Image.open(uploaded_file)
+    # normalize exactly like training (IMPORTANT FIX)
+    arr = arr / 255.0
 
-    st.image(image, caption="Uploaded Image", width='stretch')
+    # reshape: (1, 1, 28, 28) for ONNX models
+    arr = arr.reshape(1, 1, 28, 28)
 
-    # 🔥 PREPROCESSING (CRITICAL FIX)
-    image = image.convert("L")         # convert to grayscale
-    image = image.resize((28, 28))    # resize to model input
-    image = np.array(image)
+    return arr
 
-    image = image / 255.0             # normalize
-    image = image.reshape(1, 1, 28, 28).astype(np.float32)
+# ---------------- Upload ----------------
+file = st.file_uploader("Upload a fashion image", type=["png", "jpg", "jpeg"])
 
-    # Predict
-    input_name = session.get_inputs()[0].name
-    output = session.run(None, {input_name: image})
+if file:
+    image = Image.open(file)
+    st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    pred = np.argmax(output[0])
-    confidence = np.max(output[0])
+    input_data = preprocess(image)
 
-    st.success(f"Prediction: {labels[pred]}")
+    preds = session.run([output_name], {input_name: input_data})[0]
+
+    # FIX: correct prediction axis
+    pred_class = np.argmax(preds, axis=1)[0]
+    confidence = np.max(preds)
+
+    st.success(f"Prediction: {CLASS_NAMES[pred_class]}")
     st.write(f"Confidence: {confidence:.2f}")
